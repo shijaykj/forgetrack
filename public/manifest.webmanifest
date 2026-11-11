@@ -1,0 +1,11 @@
+{
+  "name": "ForgeTrack",
+  "short_name": "ForgeTrack",
+  "description": "Fast, premium, local-first strength training tracker.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
