@@ -1286,3 +1286,164 @@
 .repeat-row svg {
   color: var(--text-3);
 }
+
+/* ── Plate calculator ─────────────────────────────────────────── */
+.ex-plates {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--steel-soft);
+  color: var(--steel);
+  font-size: 12px;
+  font-weight: 700;
+}
+.plate-calc {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 4px;
+}
+.plate-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.plate-nudge {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+}
+.plate-nudge:active {
+  transform: scale(0.95);
+}
+.plate-input {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  height: 52px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+}
+.plate-input:focus-within {
+  border-color: var(--ember-line);
+}
+.plate-input input {
+  width: 100%;
+  min-width: 0;
+  max-width: 140px;
+  background: none;
+  border: 0;
+  outline: none;
+  text-align: right;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 50px;
+  /* ≥16px avoids iOS focus zoom */
+}
+.plate-input span {
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
+}
+.plate-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 132px;
+  padding: 0 8px;
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% 22px,
+    var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.plate-sleeve-stub {
+  width: 28px;
+  height: 10px;
+  flex: none;
+  border-radius: 2px;
+  background: linear-gradient(#9aa1ab, #6b727c);
+}
+.plate-collar {
+  width: 8px;
+  height: 30px;
+  flex: none;
+  border-radius: 2px;
+  background: linear-gradient(#c3c8cf, #7d848e);
+}
+.plate-stack {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  padding: 10px 0 10px 2px;
+  z-index: 1;
+}
+.plate {
+  position: relative;
+  width: 20px;
+  flex: none;
+  border-radius: 4px;
+  box-shadow:
+    inset -3px 0 0 rgba(0, 0, 0, 0.22),
+    inset 2px 0 0 rgba(255, 255, 255, 0.22);
+  display: grid;
+  place-items: center;
+}
+.plate-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.7);
+}
+.plate-sleeve {
+  flex: 1;
+  height: 12px;
+  margin-left: -2px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(#9aa1ab, #6b727c);
+}
+.plate-summary {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.plate-per-side {
+  font-size: 22px;
+  font-weight: 800;
+}
+.plate-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--warm);
+}
+.plate-bar-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.plate-reset {
+  align-self: center;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

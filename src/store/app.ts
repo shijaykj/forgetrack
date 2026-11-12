@@ -30,6 +30,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   unit: 'kg',
   defaultRestSec: 120,
   keepAwake: true,
+  bar: { kg: 20, lb: 45 },
   theme: 'dark',
   sound: true,
   haptics: true,
@@ -80,6 +81,7 @@ export interface AppState extends AppData {
   addSet(t: Target, weId: string): void;
   removeSet(t: Target, weId: string, setId: string): { set: WorkoutSet; index: number } | null;
   insertSet(t: Target, weId: string, s: WorkoutSet, index: number): void;
+  replaceSets(t: Target, weId: string, sets: WorkoutSet[]): void;
   updateSet(t: Target, weId: string, setId: string, patch: Partial<WorkoutSet>): void;
   setSetType(t: Target, weId: string, setId: string, type: SetType): void;
   reorderSets(t: Target, weId: string, ids: string[]): void;
@@ -425,6 +427,7 @@ export const useApp = create<AppState>()(
           mutateEx(t, weId, (e) => ({ ...e, sets: e.sets.filter((x) => x.id !== setId) }));
           return { set: removed, index };
         },
+        replaceSets: (t, weId, sets) => mutateEx(t, weId, (e) => ({ ...e, sets })),
         insertSet: (t, weId, s, index) =>
           mutateEx(t, weId, (e) => {
             const sets = e.sets.slice();

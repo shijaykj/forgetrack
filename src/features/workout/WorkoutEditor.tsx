@@ -12,7 +12,9 @@ import { MUSCLE_LABEL } from '@/data/exercises';
 import { Icon } from '@/components/Icon';
 import { Button } from '@/components/ui';
 import { Menu, MenuItem, MenuLabel, MenuSep } from '@/components/Menu';
-import { cx, fmtClock, fmtVolume, fmtWeight } from '@/lib/util';
+import { cx, fmtClock, fmtVolume, fmtWeight, toDisplay, uid } from '@/lib/util';
+import { describePlates, loadPlates, PLATE_LOADED, PLATES, warmupRamp } from '@/domain/plates';
+import { PlateCalculator } from './PlateCalculator';
 import { SetRow, type Ghost } from './SetRow';
 import { ExercisePicker } from '../exercises/ExercisePicker';
 
@@ -187,6 +189,8 @@ const ExerciseBlock = memo(function ExerciseBlock({
   const isDesktop = useIsDesktop();
   const [showNotes, setShowNotes] = useState(!!we.notes);
   const [replace, setReplace] = useState(false);
+  const [plates, setPlates] = useState(false);
+  const bar = useApp((s) => s.profile.bar[s.profile.unit]);
 
   const prev = useMemo(
     () => previousSets(history, we.exerciseId, workout.id, live ? Infinity : workout.startedAt),
@@ -314,6 +318,38 @@ const ExerciseBlock = memo(function ExerciseBlock({
     [target, we.id, we.supersetId, ghostFor, exercise, live, lookup, unit, restSec, isDesktop],
   );
 
+  const plateLoaded = PLATE_LOADED.includes(exercise.equipment);
+  const canWarmup = exercise.tracking === 'weight_reps';
+  const hasWarmups = we.sets.some((s) => s.type === 'warmup');
+  /** Index of the next set to lift (first incomplete working set, else first incomplete). */
+  const nextIdx = (() => {
+    const i = we.sets.findIndex((s) => !s.completed && s.type !== 'warmup');
+    return i >= 0 ? i : we.sets.findIndex((s) => !s.completed);
+  })();
+  const nextWeight = nextIdx >= 0 ? (we.sets[nextIdx].weight ?? ghostFor(nextIdx).weight) : null;
+
+  const addWarmups = () => {
+    const wi = we.sets.findIndex((s) => s.type !== 'warmup');
+    const work = wi >= 0 ? (we.sets[wi].weight ?? ghostFor(wi).weight) : null;
+    if (!work) {
+      if (wi >= 0) focusField(we.sets[wi].id, 'weight', 'Enter your working weight first');
+      else toast({ message: 'Add a working set first' });
+      return;
+    }
+    const ramp = warmupRamp(work, unit, { plateLoaded, bar });
+    if (!ramp.length) return toast({ message: 'Working weight is already light — no warm-ups needed' });
+    const before = we.sets;
+    // Keep warm-ups already done; replace the rest with the new ramp.
+    const kept = before.filter((s) => s.type === 'warmup' && s.completed);
+    const fresh: WorkoutSet[] = ramp.slice(kept.length).map((r) => ({ id: uid(), type: 'warmup', weight: r.weight, reps: r.reps, completed: false }));
+    actions.replaceSets(target, we.id, [...kept, ...fresh, ...before.filter((s) => s.type !== 'warmup')]);
+    haptic(10);
+    toast({
+      message: `${fresh.length} warm-up set${fresh.length === 1 ? '' : 's'} added`,
+      action: { label: 'Undo', run: () => useApp.getState().replaceSets(target, we.id, before) },
+    });
+  };
+
   const removeExercise = () => {
     const r = actions.removeExercise(target, we.id);
     if (!r) return;
@@ -408,6 +444,16 @@ const ExerciseBlock = memo(function ExerciseBlock({
                     {linkedNext ? 'Unlink superset' : 'Superset with next'}
                   </MenuItem>
                 )}
+                {canWarmup && (
+                  <MenuItem icon="flame" onSelect={() => (close(), addWarmups())}>
+                    {hasWarmups ? 'Redo warm-up sets' : 'Add warm-up sets'}
+                  </MenuItem>
+                )}
+                {canWarmup && plateLoaded && (
+                  <MenuItem icon="layers" onSelect={() => (setPlates(true), close())}>
+                    Plate calculator
+                  </MenuItem>
+                )}
                 <MenuItem icon="swap" onSelect={() => (setReplace(true), close())}>
                   Replace exercise
                 </MenuItem>
@@ -444,6 +490,12 @@ const ExerciseBlock = memo(function ExerciseBlock({
               {fmtVolume(volume, unit)} {unit}
             </strong>
           </span>
+        )}
+        {plateLoaded && canWarmup && nextWeight != null && nextWeight > 0 && (
+          <button type="button" className="ex-plates" onClick={() => setPlates(true)} aria-label="Open plate calculator">
+            <Icon name="layers" size={13} />
+            <span className="num">{describePlates(loadPlates(toDisplay(nextWeight, unit), bar, PLATES[unit]).perSide) || 'Bar'}</span>
+          </button>
         )}
         {prCount > 0 && (
           <span className="ex-pr">
@@ -511,6 +563,15 @@ const ExerciseBlock = memo(function ExerciseBlock({
       <button type="button" className="add-set" onClick={() => (actions.addSet(target, we.id), haptic(6))}>
         <Icon name="plus" size={16} strokeWidth={2.2} /> Add set
       </button>
+
+      {plateLoaded && (
+        <PlateCalculator
+          open={plates}
+          onClose={() => setPlates(false)}
+          initialKg={nextWeight}
+          onApply={nextIdx >= 0 ? (kg) => actions.updateSet(target, we.id, we.sets[nextIdx].id, { weight: kg }) : undefined}
+        />
+      )}
 
       <ExercisePicker
         open={replace}
