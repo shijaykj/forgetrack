@@ -26,6 +26,10 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>ForgeTrack only writes workouts to Apple Health; it does not read your health data.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>ForgeTrack saves your finished workouts to Apple Health as strength-training sessions.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

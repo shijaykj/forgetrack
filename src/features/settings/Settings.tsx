@@ -7,7 +7,7 @@ import { generateSampleData } from '@/data/sample';
 import { Icon, Logo, type IconName } from '@/components/Icon';
 import { Button, Card, ConfirmButton, Segmented, Switch, TextInput } from '@/components/ui';
 import { fmtClock, fmtWeight } from '@/lib/util';
-import { isNative, requestRestAlerts, restAlertPermission, saveFile } from '@/lib/native';
+import { healthStatus, isNative, platform, requestHealth, requestRestAlerts, restAlertPermission, saveFile, type HealthStatus } from '@/lib/native';
 import '@/styles/pages.css';
 import '@/styles/workout.css';
 
@@ -41,6 +41,35 @@ function useRestAlerts(): [NotifState, () => Promise<void>] {
     else setState(await Notification.requestPermission());
   };
   return [state, request];
+}
+
+/** Apple Health toggle (iPhone only). Turning it on asks iOS for write access to workouts. */
+function HealthRow() {
+  const enabled = useApp((s) => s.profile.healthSync);
+  const update = useApp((s) => s.updateProfile);
+  const [status, setStatus] = useState<HealthStatus>('notDetermined');
+  useEffect(() => {
+    void healthStatus().then(setStatus);
+  }, []);
+  if (platform !== 'ios' || status === 'unavailable') return null;
+  const toggle = async (on: boolean) => {
+    if (!on) return update({ healthSync: false });
+    const s = status === 'authorized' ? status : await requestHealth();
+    setStatus(s);
+    if (s === 'authorized') {
+      update({ healthSync: true });
+      toast({ message: 'Finished workouts will be saved to Apple Health', tone: 'success' });
+    } else toast({ message: 'Allow ForgeTrack in Health → Sharing → Apps to save workouts', tone: 'danger' });
+  };
+  return (
+    <Row
+      icon="heart"
+      title="Save to Apple Health"
+      sub={status === 'denied' ? 'Access is off — allow it in the Health app → Sharing → Apps' : 'Finished workouts appear as strength training'}
+    >
+      <Switch checked={enabled && status === 'authorized'} onChange={(on) => void toggle(on)} label="Save to Apple Health" />
+    </Row>
+  );
 }
 
 export default function Settings() {
@@ -154,6 +183,7 @@ export default function Settings() {
           <Row icon="pulse" title="Haptics" sub={isNative ? 'Taptic feedback on taps, sets and PRs' : 'Vibration feedback where supported'}>
             <Switch checked={profile.haptics} onChange={(haptics) => update({ haptics })} label="Haptics" />
           </Row>
+          <HealthRow />
           <Row icon="sun" title="Keep screen on" sub="During a live workout, so the timer stays in view">
             <Switch checked={profile.keepAwake} onChange={(keepAwake) => update({ keepAwake })} label="Keep screen on" />
           </Row>

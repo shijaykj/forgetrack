@@ -215,3 +215,42 @@ export function syncWorkoutActivity(state: WorkoutActivityState | null) {
   lastActivity = key;
   quiet(state ? WorkoutActivity.sync(state) : WorkoutActivity.end());
 }
+
+/* ─────────────────── Apple Health (write-only) ─────────────────── */
+
+export type HealthStatus = 'authorized' | 'denied' | 'notDetermined' | 'unavailable';
+
+/** Implemented in ios/App/App/HealthPlugin.swift. */
+const Health = registerPlugin<{
+  status(): Promise<{ status: HealthStatus }>;
+  requestAuthorization(): Promise<{ status: HealthStatus }>;
+  saveWorkout(w: { id: string; name: string; start: number; end: number; volumeKg: number; sets: number }): Promise<{ saved: boolean }>;
+}>('Health');
+
+export async function healthStatus(): Promise<HealthStatus> {
+  if (platform !== 'ios') return 'unavailable';
+  try {
+    return (await Health.status()).status;
+  } catch {
+    return 'unavailable';
+  }
+}
+
+export async function requestHealth(): Promise<HealthStatus> {
+  if (platform !== 'ios') return 'unavailable';
+  try {
+    return (await Health.requestAuthorization()).status;
+  } catch {
+    return 'unavailable';
+  }
+}
+
+/** Save a finished workout as a strength-training session. Resolves false on any failure. */
+export async function saveWorkoutToHealth(w: { id: string; name: string; start: number; end: number; volumeKg: number; sets: number }): Promise<boolean> {
+  if (platform !== 'ios') return false;
+  try {
+    return (await Health.saveWorkout(w)).saved;
+  } catch {
+    return false;
+  }
+}

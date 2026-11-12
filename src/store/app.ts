@@ -30,6 +30,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   unit: 'kg',
   defaultRestSec: 120,
   keepAwake: true,
+  healthSync: false,
   bar: { kg: 20, lb: 45 },
   theme: 'dark',
   sound: true,
