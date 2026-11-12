@@ -53,6 +53,9 @@ One codebase, two targets. `src/lib/native.ts` is the single place that knows wh
 - the service worker is not registered (assets are bundled);
 - rest-end alerts are local notifications scheduled at the timer's absolute `endsAt` (`PlatformSync` in `Shell.tsx`), so they fire with the phone locked; foreground presentation is suppressed because the app plays its own chime/haptic;
 - the persisted document is mirrored (debounced) to `Documents/forgetrack-data.json`; if IndexedDB is empty on launch, the store hydrates from that mirror.
+- the live workout is mirrored into an ActivityKit **Live Activity** via the app-local `WorkoutActivityPlugin` (`ios/App/App/`), rendered by the `ForgeTrackWidgets` extension; the shared `WorkoutActivityAttributes` model lives in `ios/App/Shared/` and is compiled into both targets;
+- finished workouts can be written to **HealthKit** via the app-local `HealthPlugin` (write-only, opt-in).
+App-local plugins are registered in `MainViewController.capacitorDidLoad()`; `SceneDelegate` uses `MainViewController` as the root.
 `ios/` is a generated-then-committed Xcode project; `ios/App/App/public` (the copied web build) is git-ignored and recreated by `npm run ios:sync`.
 
 ## Performance
