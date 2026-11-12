@@ -141,6 +141,11 @@ export const UserProfileSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']).default('dark'),
   sound: z.boolean().default(true),
   haptics: z.boolean().default(true),
+  keepAwake: z.boolean().default(true),
+  /** iPhone: save finished workouts to Apple Health. */
+  healthSync: z.boolean().default(false),
+  /** Empty-bar weight per unit, for the plate calculator and warm-ups. */
+  bar: z.object({ kg: z.number().min(0).max(50), lb: z.number().min(0).max(110) }).default({ kg: 20, lb: 45 }),
   weekStartsOn: z.union([z.literal(0), z.literal(1)]).default(1),
   weeklyGoal: z.number().int().min(1).max(14).default(4),
 });

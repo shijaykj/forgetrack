@@ -13,6 +13,7 @@ A premium, local-first strength-training tracker. Fast set logging, smart rest t
 - **Routines**: drag to reorder exercises and sets, supersets, target weights/reps, per-exercise rest, duplicate, save any workout as a routine.
 - **History**: monthly feed, full detail, edit past sessions, repeat, delete with undo.
 - **Analytics**: weekly/monthly volume, e1RM / top-set / volume progression with record markers, training calendar heatmap, muscle balance radar, bodyweight trend, plain-language insights.
+- **Plate calculator & warm-ups**: plates-per-side shown on every barbell lift (tap for an animated calculator with your bar weight), and one-tap warm-up ramps toward your working weight.
 - **Records**: heaviest weight, best e1RM, best set volume, most reps — per exercise, with a PR timeline.
 - **70+ exercise library** plus unlimited custom exercises.
 - Dark-first premium UI with a light theme, mobile bottom nav + desktop rail, PWA/offline, JSON backup/restore and CSV export.
@@ -36,6 +37,32 @@ npm run lint
 ```
 
 Want to look around first? On the empty Today screen (or in Settings) choose **Load sample data** to generate a realistic 14-week log.
+
+## iPhone app (Capacitor)
+
+The same React app ships as a native iOS app through [Capacitor](https://capacitorjs.com). The web build is bundled into the app, so it runs fully offline with no server. Requires a Mac with Xcode 26+ and Node 18+.
+
+```bash
+npm run ios:sync   # build the web app and copy it into ios/
+npm run ios        # …then open the Xcode project
+npm run ios:run    # …or build and launch on a simulator / connected iPhone
+```
+
+To install on your own iPhone:
+1. Xcode → Settings → Accounts → add your Apple ID (a free account works for personal installs; apps signed this way expire after 7 days — just press Run again).
+2. Open `ios/App/App.xcodeproj` (`npm run ios`). For **both** the *App* and *ForgeTrackWidgets* targets → *Signing & Capabilities* → choose your team. If the bundle id `com.shijaykj.forgetrack` is taken, change it in `capacitor.config.ts`, the App target, and the widget target (`<app id>.ForgeTrackWidgets`).
+3. On the iPhone: plug it in, trust the Mac, and enable *Settings → Privacy & Security → Developer Mode*.
+4. Pick the phone as the run destination and press Run. The first launch may require *Settings → General → VPN & Device Management → trust your developer certificate*.
+
+Native extras over the web version (all in `src/lib/native.ts`):
+- **Taptic haptics** on taps, completed sets, rest end and PRs.
+- **Rest-end notifications** scheduled with iOS, delivered even when the phone is locked.
+- **Live Activity** on the lock screen and Dynamic Island during a workout: elapsed time, rest countdown with progress, sets done and the next exercise (`ios/App/ForgeTrackWidgets`).
+- **Apple Health**: optional (Settings → Save to Apple Health); each finished workout is saved as a strength-training session. Write-only — ForgeTrack never reads health data.
+- **Screen stays on** during a live workout (toggle in Settings; uses the Wake Lock API on the web).
+- **Backup / CSV export** via the iOS share sheet (Save to Files, AirDrop).
+- **Safety copy** of all data in *Files → On My iPhone → ForgeTrack*; restored automatically if the WebView storage is ever cleared.
+- Status bar follows the app theme; branded icon and launch screen (`npm run icons` regenerates all PNGs).
 
 ## Deploy
 

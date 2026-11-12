@@ -4,6 +4,7 @@ import { useId, type SVGProps } from 'react';
 const paths = {
   home: <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" />,
   pulse: <path d="M3 12h4l2.5-6 5 12L17 12h4" />,
+  heart: <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10z" />,
   bolt: <path d="M13 3 5 13.5h6L10 21l8-10.5h-6z" />,
   list: (
     <>

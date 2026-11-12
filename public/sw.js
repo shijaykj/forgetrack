@@ -1,8 +1,8 @@
 /* ForgeTrack service worker — makes the app work offline in the gym.
    Navigations: network-first, falling back to the cached shell.
    Hashed build assets: cache-first (they're immutable). */
-const CACHE = 'forgetrack-v1';
-const SHELL = ['/', '/index.html', '/icon.svg', '/manifest.webmanifest'];
+const CACHE = 'forgetrack-v2';
+const SHELL = ['/', '/index.html', '/icon.svg', '/icons/apple-touch-icon.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

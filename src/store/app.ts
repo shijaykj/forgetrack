@@ -17,6 +17,7 @@ import {
 import { LIBRARY_MAP } from '@/data/exercises';
 import { previousSets } from '@/domain/calc';
 import { uid } from '@/lib/util';
+import { isNative, readMirror, writeMirror } from '@/lib/native';
 
 export const STORAGE_KEY = 'forgetrack:v1';
 export const SCHEMA_VERSION = 1;
@@ -28,6 +29,9 @@ export const DEFAULT_PROFILE: UserProfile = {
   name: '',
   unit: 'kg',
   defaultRestSec: 120,
+  keepAwake: true,
+  healthSync: false,
+  bar: { kg: 20, lb: 45 },
   theme: 'dark',
   sound: true,
   haptics: true,
@@ -78,6 +82,7 @@ export interface AppState extends AppData {
   addSet(t: Target, weId: string): void;
   removeSet(t: Target, weId: string, setId: string): { set: WorkoutSet; index: number } | null;
   insertSet(t: Target, weId: string, s: WorkoutSet, index: number): void;
+  replaceSets(t: Target, weId: string, sets: WorkoutSet[]): void;
   updateSet(t: Target, weId: string, setId: string, patch: Partial<WorkoutSet>): void;
   setSetType(t: Target, weId: string, setId: string, type: SetType): void;
   reorderSets(t: Target, weId: string, ids: string[]): void;
@@ -165,17 +170,43 @@ export function applyLinks<T extends Linkable>(list: T[], links: boolean[]): T[]
  */
 const pending = new Map<string, string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
+let mirrorValue: string | null = null;
 function flush() {
   flushTimer = null;
-  for (const [k, v] of pending) void set(k, v);
+  for (const [k, v] of pending) {
+    void set(k, v);
+    if (isNative && k === STORAGE_KEY) mirrorValue = v;
+  }
   pending.clear();
+  // The on-device file mirror (iOS only) is written less often than IndexedDB.
+  if (mirrorValue != null && !mirrorTimer) mirrorTimer = setTimeout(flushMirror, 1500);
+}
+function flushMirror() {
+  mirrorTimer = null;
+  if (mirrorValue == null) return;
+  const v = mirrorValue;
+  mirrorValue = null;
+  void writeMirror(v);
 }
 if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', flush);
-  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush());
+  const flushAll = () => {
+    flush();
+    if (mirrorTimer) clearTimeout(mirrorTimer);
+    flushMirror();
+  };
+  window.addEventListener('pagehide', flushAll);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flushAll());
 }
 const idbStorage: StateStorage = {
-  getItem: async (name) => (await get<string>(name)) ?? null,
+  getItem: async (name) => {
+    const v = (await get<string>(name)) ?? null;
+    if (v != null || name !== STORAGE_KEY) return v;
+    // IndexedDB empty: on iPhone, recover from the on-device mirror if one exists.
+    const mirrored = await readMirror();
+    if (mirrored != null) void set(name, mirrored);
+    return mirrored;
+  },
   setItem: (name, value) => {
     pending.set(name, value);
     flushTimer ??= setTimeout(flush, 250);
@@ -397,6 +428,7 @@ export const useApp = create<AppState>()(
           mutateEx(t, weId, (e) => ({ ...e, sets: e.sets.filter((x) => x.id !== setId) }));
           return { set: removed, index };
         },
+        replaceSets: (t, weId, sets) => mutateEx(t, weId, (e) => ({ ...e, sets })),
         insertSet: (t, weId, s, index) =>
           mutateEx(t, weId, (e) => {
             const sets = e.sets.slice();

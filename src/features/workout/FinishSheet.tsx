@@ -8,6 +8,7 @@ import { flagWorkoutPRs, workoutStats } from '@/domain/calc';
 import { Button, ConfirmButton, Sheet, Switch, TextArea } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { fmtClock, fmtVolume } from '@/lib/util';
+import { saveWorkoutToHealth } from '@/lib/native';
 
 export function FinishSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const active = useApp((s) => s.active);
@@ -32,6 +33,12 @@ export function FinishSheet({ open, onClose }: { open: boolean; onClose: () => v
       onClose();
       navigate('/');
       return;
+    }
+    if (useApp.getState().profile.healthSync) {
+      const s = workoutStats(done);
+      void saveWorkoutToHealth({ id: done.id, name: done.name, start: done.startedAt, end: done.endedAt ?? Date.now(), volumeKg: Math.round(s.volume), sets: s.sets }).then(
+        (ok) => !ok && toast({ message: "Couldn't save to Apple Health", tone: 'danger' }),
+      );
     }
     if (saveRoutine && !done.routineId) {
       routineFromWorkout(done.id, done.name);

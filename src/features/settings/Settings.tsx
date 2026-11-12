@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, snapshot, SCHEMA_VERSION } from '@/store/app';
 import { toast } from '@/store/ui';
 import { useDocumentTitle, useExerciseLookup } from '@/lib/hooks';
@@ -7,6 +7,7 @@ import { generateSampleData } from '@/data/sample';
 import { Icon, Logo, type IconName } from '@/components/Icon';
 import { Button, Card, ConfirmButton, Segmented, Switch, TextInput } from '@/components/ui';
 import { fmtClock, fmtWeight } from '@/lib/util';
+import { healthStatus, isNative, platform, requestHealth, requestRestAlerts, restAlertPermission, saveFile, type HealthStatus } from '@/lib/native';
 import '@/styles/pages.css';
 import '@/styles/workout.css';
 
@@ -27,13 +28,48 @@ function Row({ icon, title, sub, children }: { icon: IconName; title: string; su
   );
 }
 
-function download(name: string, data: string, type: string) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+type NotifState = NotificationPermission | 'unsupported';
+
+/** Rest-alert permission: system notifications on iPhone, the Notification API on the web. */
+function useRestAlerts(): [NotifState, () => Promise<void>] {
+  const [state, setState] = useState<NotifState>(() => (isNative ? 'default' : 'Notification' in window ? Notification.permission : 'unsupported'));
+  useEffect(() => {
+    if (isNative) void restAlertPermission().then((p) => setState(p === 'prompt' ? 'default' : p));
+  }, []);
+  const request = async () => {
+    if (isNative) setState((await requestRestAlerts()) ? 'granted' : 'denied');
+    else setState(await Notification.requestPermission());
+  };
+  return [state, request];
+}
+
+/** Apple Health toggle (iPhone only). Turning it on asks iOS for write access to workouts. */
+function HealthRow() {
+  const enabled = useApp((s) => s.profile.healthSync);
+  const update = useApp((s) => s.updateProfile);
+  const [status, setStatus] = useState<HealthStatus>('notDetermined');
+  useEffect(() => {
+    void healthStatus().then(setStatus);
+  }, []);
+  if (platform !== 'ios' || status === 'unavailable') return null;
+  const toggle = async (on: boolean) => {
+    if (!on) return update({ healthSync: false });
+    const s = status === 'authorized' ? status : await requestHealth();
+    setStatus(s);
+    if (s === 'authorized') {
+      update({ healthSync: true });
+      toast({ message: 'Finished workouts will be saved to Apple Health', tone: 'success' });
+    } else toast({ message: 'Allow ForgeTrack in Health → Sharing → Apps to save workouts', tone: 'danger' });
+  };
+  return (
+    <Row
+      icon="heart"
+      title="Save to Apple Health"
+      sub={status === 'denied' ? 'Access is off — allow it in the Health app → Sharing → Apps' : 'Finished workouts appear as strength training'}
+    >
+      <Switch checked={enabled && status === 'authorized'} onChange={(on) => void toggle(on)} label="Save to Apple Health" />
+    </Row>
+  );
 }
 
 export default function Settings() {
@@ -47,13 +83,13 @@ export default function Settings() {
   const update = useApp((s) => s.updateProfile);
   const lookup = useExerciseLookup();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [notif, setNotif] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'));
+  const [notif, requestNotif] = useRestAlerts();
   const stamp = new Date().toISOString().slice(0, 10);
 
-  const exportJSON = () => {
+  const exportJSON = async () => {
     const backup: Backup = { app: 'forgetrack', version: SCHEMA_VERSION, exportedAt: Date.now(), data: snapshot() };
-    download(`forgetrack-backup-${stamp}.json`, JSON.stringify(backup, null, 2), 'application/json');
-    toast({ message: 'Backup downloaded', tone: 'success' });
+    const res = await saveFile(`forgetrack-backup-${stamp}.json`, JSON.stringify(backup, null, 2), 'application/json');
+    if (res === 'downloaded') toast({ message: 'Backup downloaded', tone: 'success' });
   };
   const exportCSV = () => {
     const rows = [['date', 'workout', 'exercise', 'set', 'type', `weight_${profile.unit}`, 'reps', 'duration_sec']];
@@ -63,7 +99,7 @@ export default function Settings() {
           rows.push([new Date(w.startedAt).toISOString(), w.name, lookup(e.exerciseId)?.name ?? e.exerciseId, String(i + 1), s.type, s.weight != null ? fmtWeight(s.weight, profile.unit) : '', String(s.reps ?? ''), String(s.durationSec ?? '')]),
         );
     const csv = rows.map((r) => r.map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n');
-    download(`forgetrack-sets-${stamp}.csv`, csv, 'text/csv');
+    void saveFile(`forgetrack-sets-${stamp}.csv`, csv, 'text/csv');
   };
   const importJSON = async (file: File) => {
     try {
@@ -144,12 +180,34 @@ export default function Settings() {
           <Row icon="bolt" title="Sounds" sub="Soft chime when rest ends">
             <Switch checked={profile.sound} onChange={(sound) => update({ sound })} label="Sounds" />
           </Row>
-          <Row icon="pulse" title="Haptics" sub="Vibration feedback where supported">
+          <Row icon="pulse" title="Haptics" sub={isNative ? 'Taptic feedback on taps, sets and PRs' : 'Vibration feedback where supported'}>
             <Switch checked={profile.haptics} onChange={(haptics) => update({ haptics })} label="Haptics" />
           </Row>
-          <Row icon="info" title="Rest notifications" sub={notif === 'granted' ? 'Enabled — alerts when the app is in the background' : notif === 'denied' ? 'Blocked in browser settings' : notif === 'unsupported' ? 'Not supported on this browser' : 'Get alerted when rest ends in another app'}>
+          <HealthRow />
+          <Row icon="sun" title="Keep screen on" sub="During a live workout, so the timer stays in view">
+            <Switch checked={profile.keepAwake} onChange={(keepAwake) => update({ keepAwake })} label="Keep screen on" />
+          </Row>
+          <Row
+            icon="info"
+            title="Rest notifications"
+            sub={
+              notif === 'granted'
+                ? isNative
+                  ? 'Enabled — alerts even when your phone is locked'
+                  : 'Enabled — alerts when the app is in the background'
+                : notif === 'denied'
+                  ? isNative
+                    ? 'Turned off in iOS Settings → ForgeTrack → Notifications'
+                    : 'Blocked in browser settings'
+                  : notif === 'unsupported'
+                    ? 'Not supported on this browser'
+                    : isNative
+                      ? 'Get alerted when rest ends, even with the phone locked'
+                      : 'Get alerted when rest ends in another app'
+            }
+          >
             {notif === 'default' && (
-              <Button size="sm" onClick={async () => setNotif(await Notification.requestPermission())}>
+              <Button size="sm" onClick={() => void requestNotif()}>
                 Enable
               </Button>
             )}
@@ -159,7 +217,7 @@ export default function Settings() {
         <Card className="settings-card">
           <div className="eyebrow settings-cap">Your data</div>
           <p className="muted settings-note">
-            Everything lives on this device in IndexedDB — {counts.w} workouts, {counts.r} routines, {counts.c} custom exercises. No account, no limits. Back up regularly.
+            Everything lives on this device{isNative ? ' (with a safety copy in Files → ForgeTrack)' : ' in IndexedDB'} — {counts.w} workouts, {counts.r} routines, {counts.c} custom exercises. No account, no limits. Back up regularly.
           </p>
           <div className="settings-actions">
             <Button icon="download" onClick={exportJSON}>
