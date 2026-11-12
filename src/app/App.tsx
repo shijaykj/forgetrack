@@ -5,6 +5,7 @@ import { Shell } from './Shell';
 import { useApp } from '@/store/app';
 import { Logo } from '@/components/Icon';
 import { primeAudio } from '@/lib/feedback';
+import { syncStatusBar } from '@/lib/native';
 import Dashboard from '@/features/dashboard/Dashboard';
 
 const StartWorkout = lazy(() => import('@/features/workout/StartWorkout'));
@@ -26,6 +27,7 @@ function useTheme() {
       const resolved = theme === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : theme;
       document.documentElement.dataset.theme = resolved;
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'light' ? '#f3f2ef' : '#08090b');
+      syncStatusBar(resolved);
     };
     apply();
     if (theme !== 'system') return;

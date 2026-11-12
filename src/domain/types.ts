@@ -141,6 +141,7 @@ export const UserProfileSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']).default('dark'),
   sound: z.boolean().default(true),
   haptics: z.boolean().default(true),
+  keepAwake: z.boolean().default(true),
   weekStartsOn: z.union([z.literal(0), z.literal(1)]).default(1),
   weeklyGoal: z.number().int().min(1).max(14).default(4),
 });

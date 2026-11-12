@@ -1,8 +1,10 @@
 import { useApp } from '@/store/app';
+import { isNative, nativeHaptic } from '@/lib/native';
 
-/** Haptic tick where the platform supports it (Android Chrome); silently no-ops elsewhere. */
+/** Haptic feedback: Taptic Engine on iPhone, vibration on Android browsers; silently no-ops elsewhere. */
 export function haptic(pattern: number | number[] = 12) {
   if (!useApp.getState().profile.haptics) return;
+  if (isNative) return nativeHaptic(pattern);
   try {
     navigator.vibrate?.(pattern);
   } catch {

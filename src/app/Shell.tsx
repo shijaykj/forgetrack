@@ -7,6 +7,7 @@ import { timerRemaining, useTimer } from '@/store/timer';
 import { useUI } from '@/store/ui';
 import { useNow } from '@/lib/hooks';
 import { chime, haptic } from '@/lib/feedback';
+import { isNative, restAlertPermission, requestRestAlerts, setKeepAwake, syncRestNotification } from '@/lib/native';
 import { cx, fmtClock } from '@/lib/util';
 import { PR_SHORT } from '@/domain/calc';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -49,6 +50,7 @@ export function Shell() {
       {active && !onWorkout && <LiveBar />}
       {!onWorkout && <BottomNav />}
       <TimerWatcher />
+      <PlatformSync />
       <Toaster workout={onWorkout} />
       <Celebration />
     </div>
@@ -229,7 +231,8 @@ function TimerWatcher() {
       markFinished();
       chime();
       haptic([60, 40, 60]);
-      if (document.visibilityState === 'hidden' && 'Notification' in window && Notification.permission === 'granted') {
+      // On iPhone the rest alert is a scheduled system notification (see PlatformSync).
+      if (!isNative && document.visibilityState === 'hidden' && 'Notification' in window && Notification.permission === 'granted') {
         try {
           new Notification('Rest complete', { body: 'Time for your next set.', tag: 'forgetrack-rest', silent: false });
         } catch {
@@ -357,4 +360,34 @@ function Celebration() {
       </AnimatePresence>
     </div>
   );
+}
+
+/**
+ * Bridges app state to platform services:
+ *  - keeps the screen awake while a workout is live (if enabled),
+ *  - on iPhone, mirrors the rest timer into a scheduled system notification so
+ *    the alert arrives even with the phone locked, and asks for notification
+ *    permission the first time a workout starts.
+ */
+function PlatformSync() {
+  const live = useApp((s) => s.active != null);
+  const keepAwake = useApp((s) => s.profile.keepAwake);
+  const endsAt = useTimer((s) => s.endsAt);
+  const label = useTimer((s) => s.label);
+
+  useEffect(() => {
+    void setKeepAwake(live && keepAwake);
+  }, [live, keepAwake]);
+  useEffect(() => () => void setKeepAwake(false), []);
+
+  useEffect(() => {
+    if (!isNative || !live) return;
+    void restAlertPermission().then((p) => p === 'prompt' && requestRestAlerts());
+  }, [live]);
+
+  useEffect(() => {
+    void syncRestNotification(endsAt, label);
+  }, [endsAt, label]);
+
+  return null;
 }

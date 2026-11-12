@@ -37,6 +37,26 @@ npm run lint
 
 Want to look around first? On the empty Today screen (or in Settings) choose **Load sample data** to generate a realistic 14-week log.
 
+## iPhone app (Capacitor)
+
+The same React app ships as a native iOS app through [Capacitor](https://capacitorjs.com). The web build is bundled into the app, so it runs fully offline with no server. Requires a Mac with Xcode 26+ and Node 18+.
+
+```bash
+npm run ios:sync   # build the web app and copy it into ios/
+npm run ios        # …then open the Xcode project
+npm run ios:run    # …or build and launch on a simulator / connected iPhone
+```
+
+To install on your own iPhone: open `ios/App/App.xcodeproj`, select the **App** target → *Signing & Capabilities*, choose your Apple ID team (a free account works for personal installs), plug in the phone and press Run. Change the bundle id in `capacitor.config.ts` if it clashes.
+
+Native extras over the web version (all in `src/lib/native.ts`):
+- **Taptic haptics** on taps, completed sets, rest end and PRs.
+- **Rest-end notifications** scheduled with iOS, delivered even when the phone is locked.
+- **Screen stays on** during a live workout (toggle in Settings; uses the Wake Lock API on the web).
+- **Backup / CSV export** via the iOS share sheet (Save to Files, AirDrop).
+- **Safety copy** of all data in *Files → On My iPhone → ForgeTrack*; restored automatically if the WebView storage is ever cleared.
+- Status bar follows the app theme; branded icon and launch screen (`npm run icons` regenerates all PNGs).
+
 ## Deploy
 
 `npm run build` produces a fully static `dist/` folder. Host it anywhere that serves static files; the only requirement is an SPA fallback (unknown paths → `index.html`).
