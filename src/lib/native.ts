@@ -6,7 +6,7 @@
  * branch on the platform themselves. Every call is best-effort: a missing
  * plugin or denied permission must never break logging a set.
  */
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -184,4 +184,34 @@ export async function readMirror(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/* ─────────────────── Live Activity (lock screen + Dynamic Island) ─────────────────── */
+
+export interface WorkoutActivityState {
+  workoutName: string;
+  startedAt: number;
+  restEndsAt: number | null;
+  restTotalSec: number;
+  pausedRemainingSec: number | null;
+  setsDone: number;
+  setsTotal: number;
+  currentExercise: string;
+}
+
+/** Implemented in ios/App/App/WorkoutActivityPlugin.swift (iOS 16.2+). */
+const WorkoutActivity = registerPlugin<{
+  sync(state: WorkoutActivityState): Promise<{ active: boolean }>;
+  end(): Promise<void>;
+}>('WorkoutActivity');
+
+let lastActivity = '';
+
+/** Start/update the live-workout Live Activity, or end it with `null`. Deduplicates identical updates. */
+export function syncWorkoutActivity(state: WorkoutActivityState | null) {
+  if (platform !== 'ios') return;
+  const key = state ? JSON.stringify(state) : '';
+  if (key === lastActivity) return;
+  lastActivity = key;
+  quiet(state ? WorkoutActivity.sync(state) : WorkoutActivity.end());
 }

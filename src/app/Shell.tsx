@@ -7,7 +7,8 @@ import { timerRemaining, useTimer } from '@/store/timer';
 import { useUI } from '@/store/ui';
 import { useNow } from '@/lib/hooks';
 import { chime, haptic } from '@/lib/feedback';
-import { isNative, restAlertPermission, requestRestAlerts, setKeepAwake, syncRestNotification } from '@/lib/native';
+import { isNative, restAlertPermission, requestRestAlerts, setKeepAwake, syncRestNotification, syncWorkoutActivity } from '@/lib/native';
+import { useExerciseLookup } from '@/lib/hooks';
 import { cx, fmtClock } from '@/lib/util';
 import { PR_SHORT } from '@/domain/calc';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -388,6 +389,36 @@ function PlatformSync() {
   useEffect(() => {
     void syncRestNotification(endsAt, label);
   }, [endsAt, label]);
+
+  // Live Activity: mirrors the live workout onto the lock screen and Dynamic Island.
+  const active = useApp((s) => s.active);
+  const pausedRemaining = useTimer((s) => s.pausedRemaining);
+  const totalMs = useTimer((s) => s.totalMs);
+  const lookup = useExerciseLookup();
+  useEffect(() => {
+    if (!isNative) return;
+    if (!active) return syncWorkoutActivity(null);
+    let done = 0;
+    let total = 0;
+    let current = '';
+    for (const e of active.exercises) {
+      for (const s of e.sets) {
+        total++;
+        if (s.completed) done++;
+        else if (!current) current = lookup(e.exerciseId)?.name ?? '';
+      }
+    }
+    syncWorkoutActivity({
+      workoutName: active.name,
+      startedAt: active.startedAt,
+      restEndsAt: endsAt,
+      restTotalSec: Math.round(totalMs / 1000),
+      pausedRemainingSec: pausedRemaining != null ? Math.round(pausedRemaining / 1000) : null,
+      setsDone: done,
+      setsTotal: total,
+      currentExercise: current,
+    });
+  }, [active, endsAt, pausedRemaining, totalMs, lookup]);
 
   return null;
 }
